@@ -4,7 +4,7 @@ from models import Query
 from gpt_utils import stream_open_ai_response
 from app_utils import chunk_text, detect_file_type, extract_docx_text, extract_pdf_text, semantic_chunking, encode_chunks
 from fastapi.concurrency import run_in_threadpool
-from qdrant_utils import upsert_qdrant
+from qdrant_utils import search_qdrant, upsert_qdrant
 from app_logging import logger
 
 app = FastAPI()
@@ -18,9 +18,9 @@ async def read_root():
 
 @app.post("/streamResponse")
 async def ask_questions(query: Query):
-
+    context="no context just answer the question"
     question = query.question
-    return StreamingResponse(stream_open_ai_response(question), media_type="text/plain")
+    return StreamingResponse(stream_open_ai_response(question, context), media_type="text/plain")
 
 @app.post("/vectoriseAndUpsertDoc")
 async def vectoriseAndUpsertDoc(file: UploadFile = File(...)):
@@ -45,4 +45,10 @@ async def vectoriseAndUpsertDoc(file: UploadFile = File(...)):
     return {"message": "File uploaded and processed successfully"}
     
 
-
+@app.post("/search")
+async def search(query: Query):
+    question = query.question
+    query_vector = await run_in_threadpool(encode_chunks, [question])
+    query_result = await search_qdrant(query_vector[0])  
+    # print(query_result) 
+    return StreamingResponse(stream_open_ai_response(question, query_result), media_type="text/plain")
