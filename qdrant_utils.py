@@ -35,5 +35,17 @@ async def upsert_qdrant(chunks, embeddings, filename):
     )
     logger.info(f"File{filename} uploaded and {len(chunks)} chunks processed successfully")
 
+async def search_qdrant(query_vector):
+    results = await qdrant.query_points(
+        collection_name="documents",
+        query=query_vector.tolist(),
+        limit=3
+    )
+    result_text = []
+    for point in results.points:
+        result_text.append(point.payload["text"])
+    return result_text
+
+
 if __name__ == "__main__":
     asyncio.run(create_collection())
