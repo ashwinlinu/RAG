@@ -1,4 +1,6 @@
 from pydantic import BaseModel
+from typing import Optional
 
-class Query(BaseModel):
-    question: str
+class SearchQuery(BaseModel):
+    question: str 
+    hnsw : Optional[bool] = False
