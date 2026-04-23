@@ -2,7 +2,7 @@ import zipfile
 import io
 from pypdf import PdfReader
 from docx import Document
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer,CrossEncoder
 import nltk
 nltk.download("punkt")
 nltk.download("punkt_tab")
@@ -14,6 +14,9 @@ from nltk.tokenize import sent_tokenize
 import numpy as np
 
 model = SentenceTransformer("BAAI/bge-base-en-v1.5")  
+
+
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 # Better options:
 # "all-mpnet-base-v2"  ← higher quality
 # "BAAI/bge-base-en-v1.5" ← best for retrieval
@@ -104,3 +107,11 @@ def chunk_text(text, chunk_size=500, overlap=50):
         start += chunk_size - overlap
 
     return chunks
+
+async def result_reranker(query_vector, query_result):
+    pairs = [(query_vector,doc) for doc in query_result]
+    scores = reranker.predict(pairs)
+    ranked = sorted(zip(query_result, scores), key=lambda x: x[1], reverse=True)
+
+    # Return top 5
+    return [doc for doc, _ in ranked[:5]]

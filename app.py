@@ -5,7 +5,7 @@ import traceback
 from fastapi import BackgroundTasks, FastAPI, Form, UploadFile, File, HTTPException
 from fastapi.responses import StreamingResponse
 from gpt_utils import stream_open_ai_response
-from app_utils import chunk_text, detect_file_type, extract_docx_text, extract_pdf_text, semantic_chunking, encode_chunks
+from app_utils import chunk_text, detect_file_type, extract_docx_text, extract_pdf_text, result_reranker, semantic_chunking, encode_chunks
 from fastapi.concurrency import run_in_threadpool
 from models import SearchQuery
 from qdrant_utils import search_qdrant, upsert_qdrant
@@ -15,7 +15,7 @@ app = FastAPI()
 
 V = "1.0.0"
 
-def process_file_pipeline(content: bytes, filename: str, collection_name: str):
+async def process_file_pipeline(content: bytes, filename: str, collection_name: str):
     header = content[:2048]
     file_type = detect_file_type(header)
 
@@ -38,7 +38,8 @@ def process_file_pipeline(content: bytes, filename: str, collection_name: str):
     if len(chunks) == 0:
         return
     embeddings = encode_chunks(chunks)
-    asyncio.run(upsert_qdrant(chunks, embeddings, filename, collection_name))
+    # asyncio.run(upsert_qdrant(chunks, embeddings, filename, collection_name))
+    await upsert_qdrant(chunks, embeddings, filename, collection_name)
 
     logger.info(f"Finished processing: {filename}")
 
@@ -107,7 +108,8 @@ async def search(query: SearchQuery):
         logger.info(f"hnsw search enabled") 
     query_vector = await run_in_threadpool(encode_chunks, [question])
     query_result = await search_qdrant(query_vector[0], hnsw)
+    reranked_results = await result_reranker(question, query_result)
     # logger.info(f"Query result: {query_result}")
     retrival_time = time.time() - query_start_time
     logger.info(f"Retrival time: {retrival_time} seconds")
-    return StreamingResponse(stream_open_ai_response(question, query_result), media_type="text/plain")
+    return StreamingResponse(stream_open_ai_response(question, reranked_results), media_type="text/plain")

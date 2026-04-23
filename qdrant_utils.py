@@ -56,7 +56,7 @@ async def search_qdrant(query_vector, hnsw=False):
         results = await qdrant.query_points(
         collection_name="documents",
         query=query_vector.tolist(),
-        limit=5,
+        limit=20,
         search_params={
             "hnsw_ef": 128
             }
@@ -76,8 +76,6 @@ async def search_qdrant(query_vector, hnsw=False):
     for point in results.points:
         result_text.append(point.payload["text"])
     return result_text
-    
-
 
 if __name__ == "__main__":
     asyncio.run(create_new_collection("documents_v2"))
